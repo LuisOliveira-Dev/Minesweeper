@@ -3,8 +3,6 @@ package br.com.cod3r.cm.modelo;
 import java.util.ArrayList;
 import java.util.List;
 
-import br.com.cod3r.cm.exception.ExplosaoException;
-
 public class Campo {
 
 	private final int linha;
@@ -15,10 +13,20 @@ public class Campo {
 	private boolean marcado ;//indica que possui uma mina (contém valor falso por padrão)
 	
 	private List<Campo> vizinhos = new ArrayList<>();
+	private List<CampoObservador> observador = new ArrayList<>();
 	
 	Campo(int linha, int coluna){
 		this.linha = linha;
 		this.coluna = coluna;
+	}
+	
+	public void registerObserver(CampoObservador observer) {
+		observador.add(observer);
+	}
+	
+	private void notificarObserver(CampoEvento evento) {
+		observador.stream()
+		.forEach(o -> o.EventoOcorrencia(this, evento));
 	}
 	
 	boolean adicionarVizinho(Campo vizinho)	{
@@ -50,6 +58,12 @@ public class Campo {
 		
 		if(!aberto) {
 			marcado = !marcado;
+			
+		if(marcado) {
+			notificarObserver(CampoEvento.MARCAR);	
+		}else {
+			notificarObserver(CampoEvento.DESMARCAR);
+		}
 		}
 		
 	}
@@ -57,11 +71,14 @@ public class Campo {
 	boolean abrir() {
 		
 		if(!aberto && !marcado) {
-			aberto = true;
 			
 			if(minado) {
-				throw new ExplosaoException();
+				notificarObserver(CampoEvento.EXPLODIR);
+				return true;
 			}
+			
+			setAberto(true);
+			
 			
 			if(vizinhancaSegura()) {
 				vizinhos.forEach(V -> V.abrir());
@@ -93,6 +110,10 @@ public class Campo {
 	
 	void setAberto(boolean aberto) {
 		this.aberto = aberto;
+		
+		if(aberto) {
+			notificarObserver(CampoEvento.ABRIR);
+		}
 	}
 
 	public boolean isAberto() {
@@ -131,23 +152,7 @@ public class Campo {
 		
 	}
 	
-	public String toString() {
-		
-		if(marcado) {
-			return "x";
-		}else if(aberto && minado) {
-			return "*";
-			
-		}else if(aberto && minasNaVizinhanca() > 0) {
-			return Long.toString(minasNaVizinhanca());
-			
-		}else if(aberto) {
-			return " ";
-			
-		}else { 
-			return "?";
-		}
-	}
+
 }
 
 
