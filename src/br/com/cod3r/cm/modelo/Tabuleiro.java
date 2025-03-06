@@ -2,9 +2,10 @@ package br.com.cod3r.cm.modelo;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
-public class Tabuleiro {
+public class Tabuleiro implements CampoObservador {
 
 	
 	private int linhas; 
@@ -12,7 +13,8 @@ public class Tabuleiro {
 	private int minas;
 	
 	private final List<Campo> campos = new ArrayList<>();
-	
+	private final List<Consumer<ResultadoEvento>> observadores = new 
+			ArrayList<>();
 	
 	public Tabuleiro() {
 		
@@ -29,19 +31,21 @@ public class Tabuleiro {
 		
 	}
 	
+	public void registrarObservador(Consumer<ResultadoEvento> obervador) {
+		observadores.add(obervador);
+	}
+	
+	private void notificarObserver(Boolean resultado) {
+		observadores.stream()
+		.forEach(o -> o.accept(new ResultadoEvento(resultado)));
+	}
+	
 	public void abrir(int linha, int coluna) {
-		try {
+	
 		campos.parallelStream()
 			.filter(c-> c.getLinha() == linha && c.getColuna() == coluna)
 			.findFirst()
 			.ifPresent(c -> c.abrir());
-		
-		} catch (Exception e) {
-			//FIXME Ajustar a implementação do método abrir 
-			campos.forEach(c -> c.setAberto(true));
-			throw e;
-		}
-		
 	}
 	
 	public void alternarMarking(int linha, int coluna) {
@@ -55,7 +59,9 @@ public class Tabuleiro {
 	private void gerarCampos() {
 		for (int linha = 0; linha < linhas; linha++) {
 			for(int coluna = 0; coluna < colunas; coluna++) {
-				campos.add(new Campo(linha, coluna));
+				Campo campo = new Campo(linha, coluna);
+				campo.registerObserver(this);
+				campos.add(campo);
 				
 			}
 			
@@ -91,7 +97,23 @@ public class Tabuleiro {
 		campos.stream().forEach(c -> c.reiniciar());
 		sortearMinas();
 	}
-
+	
+	@Override
+	public void EventoOcorrencia(Campo c, CampoEvento evento) {
+		if(evento == CampoEvento.EXPLODIR) {
+			mostrarMinas();
+			notificarObserver(false);
+		} else if (objetivoAlcancado()){
+			notificarObserver(true);
+		}	
+	}
+	
+	private void mostrarMinas() {
+		campos.stream()
+		.filter(c -> c.isMinado());
+		campos.forEach(c -> c.setAberto(true));
+		
+	}
 }
 
 
